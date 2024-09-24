@@ -1,43 +1,73 @@
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
-import { useState } from "react";
-import { Button, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState, useRef } from "react";
+import { Button, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Icon from 'react-native-vector-icons/Ionicons';
 
-export default function Index() {
+export default function CameraApp() {
   const [facing, setFacing] = useState<CameraType>('back');
+  const [flash, setFlash] = useState('off');
   const [permission, requestPermission] = useCameraPermissions();
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const cameraRef = useRef(null);
 
   if (!permission) {
-    //camera permission are loading
-    return <View />
+    return <View />;
   }
 
   if (!permission.granted) {
-    //camera permission are not granted
     return (
       <View style={styles.container}>
-        <Text style={styles.message}>Camera permission are not granted</Text>
-        <Button onPress={requestPermission} title="Request permission"/>
+        <Text style={styles.message}>Camera permission is not granted</Text>
+        <Button onPress={requestPermission} title="Request permission" />
       </View>
     );
   }
 
-  function toggleCameraFacing(){
+  function toggleCameraFacing() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
+  }
+
+  function toggleFlash() {
+    setFlash(current => (current === 'off' ? 'on' : 'off'));
+  }
+
+  async function takePicture() {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync();
+      setPhotoUri(photo.uri);
+      console.log(photo);
+    }
   }
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing}>
+      <CameraView
+        style={styles.camera}
+        facing={facing}
+        flashMode={flash}
+        ref={cameraRef}
+      >
+        {/* Button Container for Camera Controls */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
-            <Text style={styles.text}>Flip Camera</Text>
+            <Icon name="camera-reverse" size={32} color="white" />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={takePicture}>
+            <Icon name="camera" size={32} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={toggleFlash}>
+            <Icon name={flash === 'off' ? "flash-off" : "flash"} size={32} color="white" />
+          </TouchableOpacity>
+          {photoUri && (
+            <TouchableOpacity style={styles.thumbnailContainer} onPress={() => console.log('Open photo viewer')}>
+              <Image source={{ uri: photoUri }} style={styles.thumbnail} />
+            </TouchableOpacity>
+          )}
         </View>
       </CameraView>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -52,19 +82,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   buttonContainer: {
-    flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'transparent',
-    margin: 64,
+    justifyContent: 'space-between', // Distributes space evenly between buttons
+    alignItems: 'center',
+    position: 'absolute', // Positions the buttons at the bottom
+    bottom: 20,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
   },
   button: {
-    flex: 1,
-    alignSelf: 'flex-end',
     alignItems: 'center',
+    flex: 1, // Allows buttons to take equal space
+    justifyContent: 'center',
   },
-  text: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+  thumbnailContainer: {
+    alignItems: 'center', // Centers the thumbnail in its column
+    justifyContent: 'center',
+    marginLeft: -10, // Adjusts the margin for better alignment if needed
+  },
+  thumbnail: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
   },
 });
