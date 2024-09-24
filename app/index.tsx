@@ -1,7 +1,8 @@
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
-import { useState, useRef } from "react";
-import { Button, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { Button, Image, StyleSheet, Text, TouchableOpacity, View, Linking, Alert } from "react-native";
 import Icon from 'react-native-vector-icons/Ionicons';
+import * as FileSystem from 'expo-file-system';
 
 export default function CameraApp() {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -9,6 +10,21 @@ export default function CameraApp() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const cameraRef = useRef(null);
+
+  useEffect(() => {
+    // Ensure the photos directory exists
+    const ensureDirExists = async () => {
+      try {
+        const dirInfo = await FileSystem.getInfoAsync(FileSystem.documentDirectory + 'photos');
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(FileSystem.documentDirectory + 'photos', { intermediates: true });
+        }
+      } catch (error) {
+        console.error('Error ensuring photos directory exists:', error);
+      }
+    };
+    ensureDirExists();
+  }, []);
 
   if (!permission) {
     return <View />;
@@ -32,10 +48,33 @@ export default function CameraApp() {
   }
 
   async function takePicture() {
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
-      setPhotoUri(photo.uri);
-      console.log(photo);
+    try {
+      if (cameraRef.current) {
+        const photo = await cameraRef.current.takePictureAsync();
+        const fileName = `${FileSystem.documentDirectory}photos/${Date.now()}.jpg`;
+        await FileSystem.moveAsync({
+          from: photo.uri,
+          to: fileName,
+        });
+        setPhotoUri(fileName);
+        console.log('Photo taken and saved to:', fileName);
+      }
+    } catch (error) {
+      console.error('Error taking picture:', error);
+    }
+  }
+
+  async function openPhotoDirectory() {
+    try {
+      const dirUri = FileSystem.documentDirectory + 'photos';
+      const dirInfo = await FileSystem.getInfoAsync(dirUri);
+      if (dirInfo.exists) {
+        Linking.openURL(dirUri);
+      } else {
+        Alert.alert('Directory does not exist');
+      }
+    } catch (error) {
+      console.error('Error opening photo directory:', error);
     }
   }
 
@@ -59,7 +98,7 @@ export default function CameraApp() {
             <Icon name={flash === 'off' ? "flash-off" : "flash"} size={32} color="white" />
           </TouchableOpacity>
           {photoUri && (
-            <TouchableOpacity style={styles.thumbnailContainer} onPress={() => console.log('Open photo viewer')}>
+            <TouchableOpacity style={styles.thumbnailContainer} onPress={openPhotoDirectory}>
               <Image source={{ uri: photoUri }} style={styles.thumbnail} />
             </TouchableOpacity>
           )}
