@@ -3,12 +3,15 @@ import { useState, useRef, useEffect } from "react";
 import { Button, Image, StyleSheet, Text, TouchableOpacity, View, Linking, Alert } from "react-native";
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as FileSystem from 'expo-file-system';
+import * as Location from 'expo-location';
 
 export default function CameraApp() {
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState('off');
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -24,6 +27,21 @@ export default function CameraApp() {
       }
     };
     ensureDirExists();
+  }, []);
+
+  useEffect(() => {
+    // Request location permissions and get current location
+    const getLocation = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMsg('Permission to access location was denied');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setLocation(location);
+    };
+    getLocation();
   }, []);
 
   if (!permission) {
@@ -104,6 +122,9 @@ export default function CameraApp() {
           )}
         </View>
       </CameraView>
+      <View style={styles.locationContainer}>
+        {errorMsg ? <Text>{errorMsg}</Text> : <Text>Location: {location ? `${location.coords.latitude}, ${location.coords.longitude}` : 'Fetching location...'}</Text>}
+      </View>
     </View>
   );
 }
@@ -144,5 +165,9 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 10,
+  },
+  locationContainer: {
+    padding: 20,
+    alignItems: 'center',
   },
 });
